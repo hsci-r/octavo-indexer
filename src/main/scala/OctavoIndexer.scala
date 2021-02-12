@@ -44,6 +44,7 @@ class OctavoIndexer extends ParallelProcessor {
   val whiteSpaceAnalyzer = createAnalyser(_ => new WhitespaceTokenizer(), (_,ts) => wrapTokenStream(ts))
   val standardTokenizingAnalyzer = createAnalyser(_ => new StandardTokenizer())
   val lowerCasingStandardTokenizingAnalyzer = createAnalyser(_ => new StandardTokenizer(),(_,ts) => new LowerCaseFilter(ts))
+  val alsoLowerCasingStandardTokenizingAnalyzer = createAnalyser(_ => new StandardTokenizer(),(_,ts) => new InputEmittingFilterWrapper(ts,ts => new LowerCaseFilter(ts)))
 
   def lsplit[A](str: List[A],pos: List[Int]): List[List[A]] = {
     val (rest, result) = pos.foldRight((str, List[List[A]]())) {

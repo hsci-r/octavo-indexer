@@ -1,5 +1,6 @@
 package fi.hsci
-import fi.seco.lucene.{Lucene80PerFieldPostingsFormatOrdTermVectorsCodec, OrdExposingFSTOrdPostingsFormat, TermVectorFilteringLucene80Codec}
+import lucene.{Lucene87PerFieldPostingsFormatOrdTermVectorsCodec, TermVectorFilteringLucene87Codec}
+
 import org.apache.lucene.analysis.Analyzer.TokenStreamComponents
 import org.apache.lucene.analysis._
 import org.apache.lucene.analysis.core.WhitespaceTokenizer
@@ -8,17 +9,17 @@ import org.apache.lucene.analysis.pattern.PatternReplaceFilter
 import org.apache.lucene.analysis.standard.StandardTokenizer
 import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute
 import org.apache.lucene.codecs.Codec
-import org.apache.lucene.codecs.blocktreeords.BlockTreeOrdsPostingsFormat
+import org.apache.lucene.codecs.blocktreeords.Lucene84BlockTreeOrdsPostingsFormat
 import org.apache.lucene.document._
 import org.apache.lucene.index._
 import org.apache.lucene.search.Sort
-import org.apache.lucene.store.MMapDirectory
+import org.apache.lucene.store.{FSDirectory, MMapDirectory, NIOFSDirectory}
 import org.apache.lucene.util.BytesRef
 import org.joda.time.format.DateTimeFormatter
 import org.rogach.scallop.ScallopConf
 
 import java.io.Reader
-import java.nio.file.FileSystems
+import java.nio.file.{FileSystems, Path}
 import java.util.regex.Pattern
 import scala.language.postfixOps
 
@@ -78,7 +79,7 @@ class OctavoIndexer extends ParallelProcessor {
     length
   }
 
-  val indexingCodec = new TermVectorFilteringLucene80Codec()
+  val indexingCodec = new TermVectorFilteringLucene87Codec()
 
   class FieldWrapper[F <: Field](val field: F) {
     def r(docs: FluidDocument*): this.type = {
@@ -214,11 +215,11 @@ class OctavoIndexer extends ParallelProcessor {
     def numberOfTokens: Int = OctavoIndexer.this.getNumberOfTokens(tokenStream)
     def setValue(v: String, t: TokenStream): Unit = {
       indexField.setTokenStream(t)
-      storedField.setStringValue(v)
+      storedField.setBytesValue(new BytesRef(v))
       o()
     }
     def setValue(v: String): Unit = {
-      storedField.setStringValue(v)
+      storedField.setBytesValue(new BytesRef(v))
       tokenStream.fill(fanalyzer.tokenStream(field,v))
       o()
     }
@@ -248,7 +249,7 @@ class OctavoIndexer extends ParallelProcessor {
     indexField.setTokenStream(tokenStream)
     def setValue(v: String, t: TokenStream): Unit = {
       indexField.setTokenStream(t)
-      storedField.setStringValue(v)
+      storedField.setBytesValue(new BytesRef(v))
       o()
     }
     def setValue(v: String): Unit = {
@@ -422,9 +423,11 @@ class OctavoIndexer extends ParallelProcessor {
     iwc
   }
 
-  def iw(path: String, sort: Sort, bufferSizeInMB: Double, clear: Boolean = true): IndexWriter = {
-    logger.info("Creating IndexWriter "+path+" with a memory buffer of "+bufferSizeInMB+"MB")
-    val d = new MMapDirectory(FileSystems.getDefault.getPath(path))
+  private def getDirectory(path: Path, mmapped: Boolean): FSDirectory = if (mmapped) new MMapDirectory(path) else new NIOFSDirectory(path)
+
+  def iw(path: String, sort: Sort, bufferSizeInMB: Double, clear: Boolean = true, mmapped: Boolean = true): IndexWriter = {
+    logger.info("Creating "+(if (mmapped) "mmapped " else "")+"IndexWriter "+path+" with a memory buffer of "+bufferSizeInMB+"MB")
+    val d = getDirectory(FileSystems.getDefault.getPath(path),mmapped)
     if (clear) d.listAll().foreach(d.deleteFile)
     new IndexWriter(d, iwc(sort, bufferSizeInMB))
   }
@@ -450,11 +453,11 @@ class OctavoIndexer extends ParallelProcessor {
   notStoredStringFieldWithTermVectors.setOmitNorms(true)
   notStoredStringFieldWithTermVectors.setStoreTermVectors(true)
 
-  def merge(path: String, sort: Sort, bufferSizeInMB: Double, finalCodec: Codec): Unit = {
+  def merge(path: String, sort: Sort, bufferSizeInMB: Double, finalCodec: Codec, mmapped: Boolean = true): Unit = {
     val size = getFileTreeSize(path)
     logger.info(f"Merging index at $path%s of $size%,d bytes.")
     var fiwc = iwc(sort, bufferSizeInMB)
-    var miw = new IndexWriter(new MMapDirectory(FileSystems.getDefault.getPath(path)), fiwc)
+    var miw = new IndexWriter(getDirectory(FileSystems.getDefault.getPath(path),mmapped), fiwc)
     if (finalCodec != null) {
       logger.info("Merging index at "+path+" to max two segments")
       miw.forceMerge(2)
@@ -472,7 +475,7 @@ class OctavoIndexer extends ParallelProcessor {
       fiwc.setMergePolicy(new UpgradeIndexMergePolicy(fiwc.getMergePolicy) {
         override protected def shouldUpgradeSegment(si: SegmentCommitInfo): Boolean = si.info.getCodec.getName != finalCodec.getName
       })
-      miw = new IndexWriter(new MMapDirectory(FileSystems.getDefault.getPath(path)), fiwc)
+      miw = new IndexWriter(getDirectory(FileSystems.getDefault.getPath(path),mmapped), fiwc)
       miw.forceMerge(1)
       miw.commit()
       miw.close()
@@ -481,13 +484,9 @@ class OctavoIndexer extends ParallelProcessor {
     logger.info(f"Merged index $path%s. Went from $size%,d bytes to ${getFileTreeSize(path)}%,d bytes.")
   }
 
-  def toCodec(postingsFormatS: String, perFieldPostings: Seq[String]): Codec = {
-    val finalCodec = new Lucene80PerFieldPostingsFormatOrdTermVectorsCodec()
-    val postingsFormat = postingsFormatS match {
-      case "fst" => new OrdExposingFSTOrdPostingsFormat()
-      case "blocktree" => new BlockTreeOrdsPostingsFormat()
-      case any => throw new IllegalArgumentException("Unknown postings format "+any)
-    }
+  val postingsFormat = new Lucene84BlockTreeOrdsPostingsFormat()
+  def toCodec(perFieldPostings: Seq[String]): Codec = {
+    val finalCodec = new Lucene87PerFieldPostingsFormatOrdTermVectorsCodec()
     finalCodec.perFieldPostingsFormat = perFieldPostings.map((_, postingsFormat)).toMap
     finalCodec
   }
@@ -504,8 +503,10 @@ class OctavoIndexer extends ParallelProcessor {
   abstract class AOctavoOpts(arguments: Seq[String]) extends ScallopConf(arguments) {
     val index = opt[String](required = true)
     val indexMemoryMb = opt[Long](default = Some(Runtime.getRuntime.maxMemory()/1024/1024/2), validate = _>0)
+    val noMmap = opt[Boolean](default = Some(false))
     val directories = trailArg[List[String]](required = false)
-    val onlyMerge = opt[Boolean](default = Some(false))
+    val noIndex = opt[Boolean](default = Some(false))
+    val noMerge = opt[Boolean](default = Some(false))
   }
 
   class OctavoOpts(arguments: Seq[String]) extends AOctavoOpts(arguments) {

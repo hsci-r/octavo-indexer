@@ -61,14 +61,40 @@ class ParallelProcessor extends LazyLogging {
 
   private val processingQueue = new ArrayBlockingQueue[Future[Unit]](queueCapacity)
 
+  var startTime = -1L
+
+  def durationToString(milliseconds: Long): String = {
+    val str = new StringBuilder()
+    var seconds = milliseconds / 1000
+    if (seconds >= 3600*24) {
+      str.append(seconds/(3600*24))
+      str.append("d")
+      seconds = seconds % (3600*24)
+    }
+    if (seconds >= 3600) {
+      str.append(seconds/3600)
+      str.append("h")
+      seconds = seconds % 3600
+    }
+    if (seconds >= 60) {
+      str.append(seconds/60)
+      str.append("m")
+      seconds = seconds % 60
+    }
+    str.append(seconds)
+    str.append("s")
+    str.toString()
+  }
+
   def feedAndProcessFedTasksInParallel(taskFeeder: () => Unit) {
     implicit val iec = ExecutionContext.Implicits.global
     val all = Promise[Unit]()
     val poison = Future(())
     val failures = new ArrayBuffer[Throwable]
+    startTime = System.currentTimeMillis()
     val sf = Future {
       taskFeeder()
-      logger.info("All sources successfully fed, producing a total of "+tasks+" tasks.")
+      logger.info("All sources successfully fed in {}, producing a total of {} tasks.", durationToString(System.currentTimeMillis()-startTime), tasks)
       processingQueue.put(poison)
     }
     sf.onComplete {
@@ -90,7 +116,7 @@ class ParallelProcessor extends LazyLogging {
     }
     if (!all.isCompleted) all.trySuccess(())
     all.future.onComplete {
-      case Success(_) => logger.info("Successfully processed all sources.")
+      case Success(_) => logger.info("Successfully processed all sources in {}.",durationToString(System.currentTimeMillis()-startTime))
       case Failure(t) =>
         logger.error(f"Processing of ${failures.size}%,d sources resulted in errors." )
         //logger.error("Processing of at least one source resulted in an error:" + t.getMessage,t)

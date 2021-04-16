@@ -50,7 +50,7 @@ class ParallelProcessor extends LazyLogging {
 
   def addTask(id: String, taskFunction: () => Unit): Unit = {
     tasks += 1
-    while (fjp.getQueuedTaskCount>queueCapacity) Thread.sleep(500)
+    while (fjp.getQueuedSubmissionCount>queueCapacity) Thread.sleep(500)
     Future {
       try {
         taskFunction()
@@ -98,12 +98,12 @@ class ParallelProcessor extends LazyLogging {
     startTime = System.currentTimeMillis()
     val sf = Future {
       taskFeeder()
-      logger.info("All sources successfully fed in {}, producing a total of {} tasks.", durationToString(System.currentTimeMillis()-startTime), tasks)
+      logger.info(f"Feeding tasks ended successfully at ${durationToString(System.currentTimeMillis()-startTime)}%s, producing a total of $tasks%,d tasks.")
       if (!fed.isCompleted) fed.trySuccess(())
     }
     sf.onComplete {
       case Failure(t) =>
-        logger.error("Feeding ended in an error:" + t.getMessage,t)
+        logger.error("Feeding tasks ended in an error:" + t.getMessage,t)
         failures synchronized { failures += t }
         fed.tryFailure(t)
         all.tryFailure(t)
@@ -114,9 +114,9 @@ class ParallelProcessor extends LazyLogging {
     all.trySuccess(())
     Await.ready(all.future,Duration.Inf)
     all.future.value.get match {
-      case Success(_) => logger.info("Successfully processed all sources in {} tasks in {}.",completedTasks,durationToString(System.currentTimeMillis()-startTime))
+      case Success(_) => logger.info(f"Successfully processed all ${completedTasks.get()}%,d tasks in ${durationToString(System.currentTimeMillis()-startTime)}%s.")
       case Failure(_) =>
-        logger.error(f"Processing resulted in ${failures.size} errors." )
+        logger.error(f"Processing ${completedTasks.get()}%,d tasks resulted in ${failures.size} errors." )
         for (failure <- failures) logger.error("Error:",failure)
     }
     indexingTaskExecutionContext.shutdown()

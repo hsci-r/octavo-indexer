@@ -1,22 +1,21 @@
 package fi.hsci
 
-import java.io.{File, PrintWriter, StringWriter}
-import java.util.concurrent.{ArrayBlockingQueue, ForkJoinPool}
-
 import com.typesafe.scalalogging.LazyLogging
 
+import java.io.{File, PrintWriter, StringWriter}
+import java.util.concurrent.ForkJoinPool
+import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
-
 import scala.util.{Failure, Success, Try}
 
 
 class ParallelProcessor extends LazyLogging {
 
-  private val numWorkers = sys.runtime.availableProcessors
+  val numWorkers = sys.runtime.availableProcessors
   val availableMemory = Runtime.getRuntime.maxMemory - (Runtime.getRuntime.totalMemory - Runtime.getRuntime.freeMemory)
-  private val queueCapacity = 1024
+  val queueCapacity = 1024
   private val fjp = new ForkJoinPool(numWorkers, (pool: ForkJoinPool) => {
     val worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool)
     worker.setName("indexing-worker-" + worker.getPoolIndex)
@@ -44,22 +43,29 @@ class ParallelProcessor extends LazyLogging {
   }
 
   private var tasks = 0
+  private val completedTasks = new AtomicInteger()
+
+  private val all = Promise[Unit]()
+  private val failures = new ArrayBuffer[Throwable]
 
   def addTask(id: String, taskFunction: () => Unit): Unit = {
     tasks += 1
     while (fjp.getQueuedTaskCount>queueCapacity) Thread.sleep(500)
-    processingQueue.put(Future {
+    Future {
       try {
         taskFunction()
       } catch {
         case cause: Exception =>
-          logger.error("An error has occurred processing source "+id,cause)
-          throw new Exception("An error has occurred processing source "+id, cause)
+          logger.error("An error has occurred processing source "+id, cause)
+          val e = new Exception("An error has occurred processing source "+id, cause)
+          all.tryFailure(e)
+          failures synchronized { failures += e }
+          throw e
+      } finally {
+        completedTasks.incrementAndGet()
       }
-    }(indexingTaskExecutionContext))
+    }(indexingTaskExecutionContext)
   }
-
-  private val processingQueue = new ArrayBlockingQueue[Future[Unit]](queueCapacity)
 
   var startTime = -1L
 
@@ -86,45 +92,35 @@ class ParallelProcessor extends LazyLogging {
     str.toString()
   }
 
-  def feedAndProcessFedTasksInParallel(taskFeeder: () => Unit) {
+  def feedAndProcessFedTasksInParallel(taskFeeder: () => Unit): Try[Unit] = {
     implicit val iec = ExecutionContext.Implicits.global
-    val all = Promise[Unit]()
-    val poison = Future(())
-    val failures = new ArrayBuffer[Throwable]
+    val fed = Promise[Unit]()
     startTime = System.currentTimeMillis()
     val sf = Future {
       taskFeeder()
       logger.info("All sources successfully fed in {}, producing a total of {} tasks.", durationToString(System.currentTimeMillis()-startTime), tasks)
-      processingQueue.put(poison)
+      if (!fed.isCompleted) fed.trySuccess(())
     }
     sf.onComplete {
       case Failure(t) =>
         logger.error("Feeding ended in an error:" + t.getMessage,t)
-        processingQueue.put(poison)
+        failures synchronized { failures += t }
+        fed.tryFailure(t)
+        all.tryFailure(t)
       case Success(_) =>
     }
-    var f = processingQueue.take()
-    while (f ne poison) {
-      Await.ready(f, Duration.Inf)
-      f.onComplete {
-        case Failure(t) =>
-          failures synchronized { failures += t }
-          if (!all.isCompleted) all.tryFailure(t)
-        case Success(_) =>
-      }
-      f = processingQueue.take()
-    }
-    if (!all.isCompleted) all.trySuccess(())
-    all.future.onComplete {
-      case Success(_) => logger.info("Successfully processed all sources in {}.",durationToString(System.currentTimeMillis()-startTime))
-      case Failure(t) =>
-        logger.error(f"Processing of ${failures.size}%,d sources resulted in errors." )
-        //logger.error("Processing of at least one source resulted in an error:" + t.getMessage,t)
-        logger.error(f"Processing of ${failures.size}%,d sources resulted in errors." )
+    Await.ready(fed.future, Duration.Inf)
+    while (completedTasks.get()<tasks) Thread.sleep(1000)
+    all.trySuccess(())
+    Await.ready(all.future,Duration.Inf)
+    all.future.value.get match {
+      case Success(_) => logger.info("Successfully processed all sources in {} tasks in {}.",completedTasks,durationToString(System.currentTimeMillis()-startTime))
+      case Failure(_) =>
+        logger.error(f"Processing resulted in ${failures.size} errors." )
         for (failure <- failures) logger.error("Error:",failure)
-        logger.error(f"Processing of ${failures.size}%,d sources resulted in errors." )
     }
     indexingTaskExecutionContext.shutdown()
+    all.future.value.get
   }
 
   def runSequenceInOtherThread(tasks: (() => Unit)*): Future[Unit] = Future {

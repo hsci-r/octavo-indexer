@@ -2,7 +2,7 @@ name := "octavo-indexer"
 
 organization := "fi.hsci"
 
-version := "1.1.7"
+version := "1.1.8"
 
 scalaVersion := "2.13.5"
 

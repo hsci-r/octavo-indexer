@@ -123,7 +123,9 @@ class ParallelProcessor extends LazyLogging {
     all.future.value.get
   }
 
-  def runSequenceInOtherThread(tasks: (() => Unit)*): Future[Unit] = Future {
+
+
+  def runInOtherThread(tasks: (() => Unit)*): Future[Unit] = Future {
     for (task <- tasks) task()
   }(ExecutionContext.Implicits.global)
 

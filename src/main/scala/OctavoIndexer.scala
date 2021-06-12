@@ -9,7 +9,7 @@ import org.apache.lucene.analysis.pattern.PatternReplaceFilter
 import org.apache.lucene.analysis.standard.StandardTokenizer
 import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttribute
 import org.apache.lucene.codecs.Codec
-import org.apache.lucene.codecs.blocktreeords.Lucene84BlockTreeOrdsPostingsFormat
+import org.apache.lucene.codecs.blocktreeords.Lucene85BlockTreeOrdsPostingsFormat
 import org.apache.lucene.document._
 import org.apache.lucene.index._
 import org.apache.lucene.search.Sort
@@ -484,7 +484,7 @@ class OctavoIndexer extends ParallelProcessor {
     logger.info(f"Merged index $path%s. Went from $size%,d bytes to ${getFileTreeSize(path)}%,d bytes.")
   }
 
-  val postingsFormat = new Lucene84BlockTreeOrdsPostingsFormat()
+  val postingsFormat = new Lucene85BlockTreeOrdsPostingsFormat()
   def toCodec(perFieldPostings: Seq[String]): Codec = {
     val finalCodec = new Lucene87PerFieldPostingsFormatOrdTermVectorsCodec()
     finalCodec.perFieldPostingsFormat = perFieldPostings.map((_, postingsFormat)).toMap

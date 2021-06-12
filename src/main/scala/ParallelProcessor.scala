@@ -13,15 +13,16 @@ import scala.util.{Failure, Success, Try}
 
 class ParallelProcessor extends LazyLogging {
 
-  val numWorkers = sys.runtime.availableProcessors
+  var numWorkers = sys.runtime.availableProcessors
   val availableMemory = Runtime.getRuntime.maxMemory - (Runtime.getRuntime.totalMemory - Runtime.getRuntime.freeMemory)
   val queueCapacity = 32768
-  private val fjp = new ForkJoinPool(numWorkers, (pool: ForkJoinPool) => {
+
+  private lazy val fjp = new ForkJoinPool(numWorkers, (pool: ForkJoinPool) => {
     val worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool)
     worker.setName("indexing-worker-" + worker.getPoolIndex)
     worker
   }, null, true)
-  private val indexingTaskExecutionContext = ExecutionContext.fromExecutorService(fjp)
+  private lazy val indexingTaskExecutionContext = ExecutionContext.fromExecutorService(fjp)
 
   /** helper function to get a recursive stream of files for a directory */
   def getFileTree(f: File): LazyList[File] =

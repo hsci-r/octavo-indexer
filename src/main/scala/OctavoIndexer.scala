@@ -503,6 +503,7 @@ class OctavoIndexer extends ParallelProcessor {
   abstract class AOctavoOpts(arguments: Seq[String]) extends ScallopConf(arguments) {
     val index = opt[String](required = true)
     val indexMemoryMb = opt[Long](default = Some(Runtime.getRuntime.maxMemory()/1024/1024/2), validate = _>0)
+    val workers = opt[Int](default = Some(sys.runtime.availableProcessors))
     val noMmap = opt[Boolean](default = Some(false))
     val directories = trailArg[List[String]](required = false)
     val noIndex = opt[Boolean](default = Some(false))

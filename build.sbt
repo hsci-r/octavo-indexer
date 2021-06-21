@@ -2,17 +2,19 @@ name := "octavo-indexer"
 
 organization := "fi.hsci"
 
-version := "1.2.3"
+version := "1.2.4"
 
 scalaVersion := "2.13.6"
 
-idePackagePrefix := Some("fi.hsci")
+javacOptions ++= Seq("--release", "11")
+
+scalacOptions ++= Seq("-release", "11")
 
 libraryDependencies ++= Seq(
   "org.rogach" %% "scallop" % "4.0.3",
 
   "org.apache.lucene" % "lucene-core" % "8.9.0",
-  "fi.hsci" %% "lucene-perfieldpostingsformatordtermvectorscodec" % "1.2.7",
+  "fi.hsci" %% "lucene-perfieldpostingsformatordtermvectorscodec" % "1.2.8",
   "org.apache.lucene" % "lucene-analyzers-common" % "8.9.0",
   "joda-time" % "joda-time" % "2.10.10",
 

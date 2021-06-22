@@ -385,7 +385,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class LongPointSDVFieldPair(field: String) extends FieldPair(new LongPoint(field, 0L), new SortedDocValuesField(field, new BytesRef())) {
-    def setValue(v: Int, sv: String) {
+    def setValue(v: Long, sv: String) {
       indexField.setLongValue(v)
       storedField.setBytesValue(new BytesRef(sv))
       o()
@@ -393,7 +393,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class LongPointSSDVFieldPair(field: String) extends FieldPair(new LongPoint(field, 0L), new SortedSetDocValuesField(field, new BytesRef())) {
-    def setValue(v: Int, sv: String) {
+    def setValue(v: Long, sv: String) {
       indexField.setLongValue(v)
       storedField.setBytesValue(new BytesRef(sv))
       o()

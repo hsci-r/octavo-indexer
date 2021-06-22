@@ -376,7 +376,7 @@ class OctavoIndexer extends ParallelProcessor {
     }
   }
 
-  class LongPointNDVFieldPair(field: String) extends FieldPair(new LongPoint(field, 0l), new NumericDocValuesField(field, 0)) {
+  class LongPointNDVFieldPair(field: String) extends FieldPair(new LongPoint(field, 0L), new NumericDocValuesField(field, 0)) {
     def setValue(v: Long) {
       indexField.setLongValue(v)
       storedField.setLongValue(v)
@@ -384,7 +384,24 @@ class OctavoIndexer extends ParallelProcessor {
     }
   }
 
-  class LongPointSDVDateTimeFieldPair(field: String, df: DateTimeFormatter) extends FieldPair(new LongPoint(field, 0l), new SortedDocValuesField(field, new BytesRef())) {
+  class LongPointSDVFieldPair(field: String) extends FieldPair(new LongPoint(field, 0L), new SortedDocValuesField(field, new BytesRef())) {
+    def setValue(v: Int, sv: String) {
+      indexField.setLongValue(v)
+      storedField.setBytesValue(new BytesRef(sv))
+      o()
+    }
+  }
+
+  class LongPointSSDVFieldPair(field: String) extends FieldPair(new LongPoint(field, 0L), new SortedSetDocValuesField(field, new BytesRef())) {
+    def setValue(v: Int, sv: String) {
+      indexField.setLongValue(v)
+      storedField.setBytesValue(new BytesRef(sv))
+      o()
+    }
+  }
+
+
+  class LongPointSDVDateTimeFieldPair(field: String, df: DateTimeFormatter) extends FieldPair(new LongPoint(field, 0L), new SortedDocValuesField(field, new BytesRef())) {
     def setValue(v: String) {
       indexField.setLongValue(df.parseMillis(v))
       storedField.setBytesValue(new BytesRef(v))
@@ -392,7 +409,7 @@ class OctavoIndexer extends ParallelProcessor {
     }
   }
 
-  class LongPointSSDVDateTimeFieldPair(field: String, df: DateTimeFormatter) extends FieldPair(new LongPoint(field, 0l), new SortedSetDocValuesField(field, new BytesRef())) {
+  class LongPointSSDVDateTimeFieldPair(field: String, df: DateTimeFormatter) extends FieldPair(new LongPoint(field, 0L), new SortedSetDocValuesField(field, new BytesRef())) {
     def setValue(v: String) {
       indexField.setLongValue(df.parseMillis(v))
       storedField.setBytesValue(new BytesRef(v))
@@ -400,7 +417,7 @@ class OctavoIndexer extends ParallelProcessor {
     }
   }
 
-  class LongPointSNDVFieldPair(field: String) extends FieldPair(new LongPoint(field, 0l), new SortedNumericDocValuesField(field, 0)) {
+  class LongPointSNDVFieldPair(field: String) extends FieldPair(new LongPoint(field, 0L), new SortedNumericDocValuesField(field, 0)) {
     def setValue(v: Long) {
       indexField.setLongValue(v)
       storedField.setLongValue(v)

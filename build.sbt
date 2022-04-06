@@ -1,20 +1,22 @@
-name := "octavo-indexer"
+lazy val core = (projectMatrix in file("."))
+  .settings(
+    name := "octavo-indexer"
+  )
+  .jvmPlatform(scalaVersions = Seq("2.13.8"))
 
-organization := "io.github.hsci-r"
+ThisBuild / organization := "io.github.hsci-r"
 
-version := "1.2.6"
+ThisBuild / version := "1.2.7"
 
-scalaVersion := "2.13.6"
+ThisBuild / versionScheme := Some("early-semver")
 
-javacOptions ++= Seq("--release", "11")
+ThisBuild / scalaVersion := "3.1.2"
 
-scalacOptions ++= Seq("-release", "11")
-
-libraryDependencies ++= Seq(
-  "org.rogach" %% "scallop" % "4.0.3",
+ThisBuild / libraryDependencies ++= Seq(
+  "org.rogach" %% "scallop" % "4.1.0",
 
   "org.apache.lucene" % "lucene-core" % "8.9.0",
-  "io.github.hsci-r" %% "lucene-perfieldpostingsformatordtermvectorscodec" % "1.2.9",
+  "io.github.hsci-r" %% "lucene-perfieldpostingsformatordtermvectorscodec" % "1.2.12",
   "org.apache.lucene" % "lucene-analyzers-common" % "8.9.0",
   "joda-time" % "joda-time" % "2.10.10",
 
@@ -25,19 +27,7 @@ libraryDependencies ++= Seq(
   "junit" % "junit" % "4.13.2" % "test"
 )
 
-licenses := Seq("MIT" -> url("https://opensource.org/licenses/MIT"))
-
-publishMavenStyle := true
-
-import xerial.sbt.Sonatype._
-sonatypeProjectHosting := Some(GitHubHosting("hsci-r", "octavo-indexer", "eetu.makela@helsinki.fi"))
-
-publishTo := {
-  val nexus = "https://s01.oss.sonatype.org/"
-  if (isSnapshot.value)
-    Some("snapshots" at nexus + "content/repositories/snapshots")
-  else
-    Some("releases"  at nexus + "service/local/staging/deploy/maven2")
-}
+ThisBuild / publishTo := sonatypePublishToBundle.value
 
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
+

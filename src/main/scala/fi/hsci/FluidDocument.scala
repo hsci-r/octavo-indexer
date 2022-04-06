@@ -5,13 +5,9 @@ import org.apache.lucene.index.IndexableField
 import scala.collection.mutable.ArrayBuffer
 
 class FluidDocument extends java.lang.Iterable[IndexableField] {
-  val fields = new ArrayBuffer[IndexableField] {
-    def setSize(n: Int): Unit = {
-      size0 = n
-    }
-  }
+  val fields = new ArrayBuffer[IndexableField]
   var requiredFieldCount = 0
-  def clearOptional(): Unit = fields.setSize(requiredFieldCount)
+  def clearOptional(): Unit = fields.remove(requiredFieldCount,fields.length-requiredFieldCount)
   def addRequired(rfields: IndexableField*): Unit = {
     requiredFieldCount += rfields.length
     fields.++=:(rfields)

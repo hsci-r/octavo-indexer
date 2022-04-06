@@ -1,8 +1,7 @@
 package fi.hsci
-import lucene.{Lucene87PerFieldPostingsFormatOrdTermVectorsCodec, TermVectorFilteringLucene87Codec}
-
-import org.apache.lucene.analysis.Analyzer.TokenStreamComponents
+import fi.hsci.lucene.{Lucene87PerFieldPostingsFormatOrdTermVectorsCodec, TermVectorFilteringLucene87Codec}
 import org.apache.lucene.analysis._
+import org.apache.lucene.analysis.Analyzer.TokenStreamComponents
 import org.apache.lucene.analysis.core.WhitespaceTokenizer
 import org.apache.lucene.analysis.miscellaneous.{HyphenatedWordsFilter, LengthFilter}
 import org.apache.lucene.analysis.pattern.PatternReplaceFilter
@@ -16,7 +15,7 @@ import org.apache.lucene.search.Sort
 import org.apache.lucene.store.{FSDirectory, MMapDirectory, NIOFSDirectory}
 import org.apache.lucene.util.BytesRef
 import org.joda.time.format.DateTimeFormatter
-import org.rogach.scallop.ScallopConf
+import org.rogach.scallop._
 
 import java.io.Reader
 import java.nio.file.{FileSystems, Path}
@@ -33,7 +32,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   def createAnalyser(tokeniser: (String) => Tokenizer, filters: ((String, TokenStream) => TokenStream)*): Analyzer = new Analyzer() {
-    override def createComponents(fieldName: String) = {
+    override def createComponents(fieldName: String): TokenStreamComponents = {
       val t = tokeniser(fieldName)
       new TokenStreamComponents(t,normalize(fieldName,t))
     }
@@ -42,10 +41,10 @@ class OctavoIndexer extends ParallelProcessor {
       filters.foldLeft(src)((in,f) => f(fieldName,in))
   }
 
-  val whiteSpaceAnalyzer = createAnalyser(_ => new WhitespaceTokenizer(), (_,ts) => wrapTokenStream(ts))
-  val standardTokenizingAnalyzer = createAnalyser(_ => new StandardTokenizer())
-  val lowerCasingStandardTokenizingAnalyzer = createAnalyser(_ => new StandardTokenizer(),(_,ts) => new LowerCaseFilter(ts))
-  val alsoLowerCasingStandardTokenizingAnalyzer = createAnalyser(_ => new StandardTokenizer(),(_,ts) => new InputEmittingFilterWrapper(ts,ts => new LowerCaseFilter(ts)))
+  val whiteSpaceAnalyzer: Analyzer = createAnalyser(_ => new WhitespaceTokenizer(), (_, ts) => wrapTokenStream(ts))
+  val standardTokenizingAnalyzer: Analyzer = createAnalyser(_ => new StandardTokenizer())
+  val lowerCasingStandardTokenizingAnalyzer: Analyzer = createAnalyser(_ => new StandardTokenizer(), (_, ts) => new LowerCaseFilter(ts))
+  val alsoLowerCasingStandardTokenizingAnalyzer: Analyzer = createAnalyser(_ => new StandardTokenizer(), (_, ts) => new InputEmittingFilterWrapper(ts, ts => new LowerCaseFilter(ts)))
 
   def lsplit[A](str: List[A],pos: List[Int]): List[List[A]] = {
     val (rest, result) = pos.foldRight((str, List[List[A]]())) {
@@ -98,57 +97,57 @@ class OctavoIndexer extends ParallelProcessor {
       this
     }
 
-    def setStringValue(value: String) = {
+    def setStringValue(value: String): this.type = {
       field.setStringValue(value)
       o()
     }
 
-    def setReaderValue(value: Reader) = {
+    def setReaderValue(value: Reader): this.type = {
       field.setReaderValue(value)
       o()
     }
 
-    def setBytesValue(value: Array[Byte]) = {
+    def setBytesValue(value: Array[Byte]): this.type = {
       field.setBytesValue(value)
       o()
     }
 
-    def setBytesValue(value: BytesRef) = {
+    def setBytesValue(value: BytesRef): this.type = {
       field.setBytesValue(value)
       o()
     }
 
-    def setByteValue(value: Byte) = {
+    def setByteValue(value: Byte): this.type = {
       field.setByteValue(value)
       o()
     }
 
-    def setShortValue(value: Short) = {
+    def setShortValue(value: Short): this.type = {
       field.setShortValue(value)
       o()
     }
 
-    def setIntValue(value: Int) = {
+    def setIntValue(value: Int): this.type = {
       field.setIntValue(value)
       o()
     }
 
-    def setLongValue(value: Long) = {
+    def setLongValue(value: Long): this.type = {
       field.setLongValue(value)
       o()
     }
 
-    def setFloatValue(value: Float) = {
+    def setFloatValue(value: Float): this.type = {
       field.setFloatValue(value)
       o()
     }
 
-    def setDoubleValue(value: Double) = {
+    def setDoubleValue(value: Double): this.type = {
       field.setDoubleValue(value)
       o()
     }
 
-    def setTokenStream(tokenStream: TokenStream) = {
+    def setTokenStream(tokenStream: TokenStream): this.type = {
       field.setTokenStream(tokenStream)
       o()
     }
@@ -187,7 +186,7 @@ class OctavoIndexer extends ParallelProcessor {
       o()
       //tokenStream.fill(t)
     }
-    def setValue(v: String) {
+    def setValue(v: String): this.type = {
       tokenStream.fill(fanalyzer.tokenStream(field,v))
       f.setStringValue(v)
       o()
@@ -213,12 +212,12 @@ class OctavoIndexer extends ParallelProcessor {
     val tokenStream = new ReusableCachedTokenStream(fanalyzer.tokenStream(field,""))
     indexField.setTokenStream(tokenStream)
     def numberOfTokens: Int = OctavoIndexer.this.getNumberOfTokens(tokenStream)
-    def setValue(v: String, t: TokenStream): Unit = {
+    def setValue(v: String, t: TokenStream): this.type = {
       indexField.setTokenStream(t)
       storedField.setBytesValue(new BytesRef(v))
       o()
     }
-    def setValue(v: String): Unit = {
+    def setValue(v: String): this.type = {
       storedField.setBytesValue(new BytesRef(v))
       tokenStream.fill(fanalyzer.tokenStream(field,v))
       o()
@@ -231,12 +230,12 @@ class OctavoIndexer extends ParallelProcessor {
   class AnalyzedFieldWrapper(field : Field, fanalyzer: Analyzer = whiteSpaceAnalyzer) extends FieldWrapper(field) {
     val tokenStream = new ReusableCachedTokenStream(fanalyzer.tokenStream(field.name,""))
     field.setTokenStream(tokenStream)
-    def setValue(v: String, t: TokenStream): Unit = {
+    def setValue(v: String, t: TokenStream): this.type = {
       field.setStringValue(v)
       field.setTokenStream(t)
       o()
     }
-    def setValue(v: String): Unit = {
+    def setValue(v: String): this.type = {
       field.setStringValue(v)
       tokenStream.fill(fanalyzer.tokenStream(field.name,v))
       field.setTokenStream(tokenStream)
@@ -247,12 +246,12 @@ class OctavoIndexer extends ParallelProcessor {
   class TextSDVFieldPair(field: String, fanalyzer: Analyzer = whiteSpaceAnalyzer) extends FieldPair(new Field(field, "", normsOmittingNotStoredTextField), new SortedDocValuesField(field, new BytesRef())) {
     val tokenStream = new ReusableCachedTokenStream(fanalyzer.tokenStream(field,""))
     indexField.setTokenStream(tokenStream)
-    def setValue(v: String, t: TokenStream): Unit = {
+    def setValue(v: String, t: TokenStream): this.type = {
       indexField.setTokenStream(t)
       storedField.setBytesValue(new BytesRef(v))
       o()
     }
-    def setValue(v: String): Unit = {
+    def setValue(v: String): this.type = {
       tokenStream.fill(fanalyzer.tokenStream(field,v))
       indexField.setTokenStream(tokenStream)
       storedField.setBytesValue(new BytesRef(v))
@@ -263,12 +262,12 @@ class OctavoIndexer extends ParallelProcessor {
   class TextSDVTVFieldPair(field: String, fanalyzer: Analyzer = whiteSpaceAnalyzer) extends FieldPair(new Field(field, "", notStoredTextFieldTypeWithTermVectors), new SortedDocValuesField(field, new BytesRef())) {
     val tokenStream = new ReusableCachedTokenStream(fanalyzer.tokenStream(field,""))
     indexField.setTokenStream(tokenStream)
-    def setValue(v: String, t: TokenStream): Unit = {
+    def setValue(v: String, t: TokenStream): this.type = {
       indexField.setTokenStream(t)
       storedField.setBytesValue(new BytesRef(v))
       o()
     }
-    def setValue(v: String): Unit = {
+    def setValue(v: String): this.type = {
       tokenStream.fill(fanalyzer.tokenStream(field,v))
       indexField.setTokenStream(tokenStream)
       storedField.setBytesValue(new BytesRef(v))
@@ -279,12 +278,12 @@ class OctavoIndexer extends ParallelProcessor {
   class TextSSDVFieldPair(field: String, fanalyzer: Analyzer = whiteSpaceAnalyzer) extends FieldPair(new Field(field, "", normsOmittingNotStoredTextField), new SortedSetDocValuesField(field, new BytesRef())) {
     val tokenStream = new ReusableCachedTokenStream(fanalyzer.tokenStream(field,""))
     indexField.setTokenStream(tokenStream)
-    def setValue(v: String, t: TokenStream): Unit = {
+    def setValue(v: String, t: TokenStream): this.type = {
       indexField.setTokenStream(t)
       storedField.setBytesValue(new BytesRef(v))
       o()
     }
-    def setValue(v: String): Unit = {
+    def setValue(v: String): this.type = {
       tokenStream.fill(fanalyzer.tokenStream(field,v))
       indexField.setTokenStream(tokenStream)
       storedField.setBytesValue(new BytesRef(v))
@@ -293,10 +292,10 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class StringSSDVFieldPair(field: String) extends FieldPair(new Field(field, "", StringField.TYPE_NOT_STORED), new SortedSetDocValuesField(field, new BytesRef())) {
-    def setValue(v: String): Unit = {
+    def setValue(v: String): this.type = {
       setValue(v,v)
     }
-    def setValue(i: String, v: String): Unit = {
+    def setValue(i: String, v: String): this.type = {
       indexField.setStringValue(i)
       storedField.setBytesValue(new BytesRef(v))
       o()
@@ -304,7 +303,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class StringSDVFieldPair(field: String) extends FieldPair(new Field(field, "", StringField.TYPE_NOT_STORED), new SortedDocValuesField(field, new BytesRef())) {
-    def setValue(v: String) {
+    def setValue(v: String): this.type = {
       indexField.setStringValue(v)
       storedField.setBytesValue(new BytesRef(v))
       o()
@@ -312,7 +311,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class StringNDVFieldPair(field: String) extends FieldPair(new Field(field, "", StringField.TYPE_NOT_STORED), new NumericDocValuesField(field, 0)) {
-    def setValue(v: Long) {
+    def setValue(v: Long): this.type = {
       indexField.setStringValue(""+v)
       storedField.setLongValue(v)
       o()
@@ -320,7 +319,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class StringSNDVFieldPair(field: String) extends FieldPair(new Field(field, "", StringField.TYPE_NOT_STORED), new SortedNumericDocValuesField(field, 0)) {
-    def setValue(v: Long) {
+    def setValue(v: Long): this.type = {
       indexField.setStringValue(""+v)
       storedField.setLongValue(v)
       o()
@@ -328,7 +327,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class LatLonFieldPair(field: String) extends FieldPair(new LatLonPoint(field,0,0), new LatLonDocValuesField(field, 0, 0)) {
-    def setValue(lat: Double, lon: Double) {
+    def setValue(lat: Double, lon: Double): this.type = {
       indexField.setLocationValue(lat, lon)
       storedField.setLocationValue(lat, lon)
       o()
@@ -336,7 +335,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class FloatPointFDVFieldPair(field: String) extends FieldPair(new FloatPoint(field, 0.0f), new FloatDocValuesField(field, 0.0f)) {
-    def setValue(v: Float) {
+    def setValue(v: Float): this.type = {
       indexField.setFloatValue(v)
       storedField.setFloatValue(v)
       o()
@@ -345,7 +344,7 @@ class OctavoIndexer extends ParallelProcessor {
 
 
   class DoublePointDDVFieldPair(field: String) extends FieldPair(new DoublePoint(field, 0.0), new DoubleDocValuesField(field, 0.0)) {
-    def setValue(v: Double) {
+    def setValue(v: Double): this.type = {
       indexField.setDoubleValue(v)
       storedField.setDoubleValue(v)
       o()
@@ -353,7 +352,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class IntPointNDVFieldPair(field: String) extends FieldPair(new IntPoint(field, 0), new NumericDocValuesField(field, 0)) {
-    def setValue(v: Int) {
+    def setValue(v: Int): this.type = {
       indexField.setIntValue(v)
       storedField.setLongValue(v)
       o()
@@ -361,7 +360,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class IntPointSDVFieldPair(field: String) extends FieldPair(new IntPoint(field, 0), new SortedDocValuesField(field, new BytesRef())) {
-    def setValue(v: Int, sv: String) {
+    def setValue(v: Int, sv: String): this.type = {
       indexField.setIntValue(v)
       storedField.setBytesValue(new BytesRef(sv))
       o()
@@ -369,7 +368,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class IntPointSNDVFieldPair(field: String) extends FieldPair(new IntPoint(field, 0), new SortedNumericDocValuesField(field, 0)) {
-    def setValue(v: Int) {
+    def setValue(v: Int): this.type = {
       indexField.setIntValue(v)
       storedField.setLongValue(v)
       o()
@@ -377,7 +376,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class LongPointNDVFieldPair(field: String) extends FieldPair(new LongPoint(field, 0L), new NumericDocValuesField(field, 0)) {
-    def setValue(v: Long) {
+    def setValue(v: Long): this.type = {
       indexField.setLongValue(v)
       storedField.setLongValue(v)
       o()
@@ -385,7 +384,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class LongPointSDVFieldPair(field: String) extends FieldPair(new LongPoint(field, 0L), new SortedDocValuesField(field, new BytesRef())) {
-    def setValue(v: Long, sv: String) {
+    def setValue(v: Long, sv: String): this.type = {
       indexField.setLongValue(v)
       storedField.setBytesValue(new BytesRef(sv))
       o()
@@ -393,7 +392,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class LongPointSSDVFieldPair(field: String) extends FieldPair(new LongPoint(field, 0L), new SortedSetDocValuesField(field, new BytesRef())) {
-    def setValue(v: Long, sv: String) {
+    def setValue(v: Long, sv: String): this.type = {
       indexField.setLongValue(v)
       storedField.setBytesValue(new BytesRef(sv))
       o()
@@ -402,7 +401,7 @@ class OctavoIndexer extends ParallelProcessor {
 
 
   class LongPointSDVDateTimeFieldPair(field: String, df: DateTimeFormatter) extends FieldPair(new LongPoint(field, 0L), new SortedDocValuesField(field, new BytesRef())) {
-    def setValue(v: String) {
+    def setValue(v: String): this.type = {
       indexField.setLongValue(df.parseMillis(v))
       storedField.setBytesValue(new BytesRef(v))
       o()
@@ -410,7 +409,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class LongPointSSDVDateTimeFieldPair(field: String, df: DateTimeFormatter) extends FieldPair(new LongPoint(field, 0L), new SortedSetDocValuesField(field, new BytesRef())) {
-    def setValue(v: String) {
+    def setValue(v: String): this.type = {
       indexField.setLongValue(df.parseMillis(v))
       storedField.setBytesValue(new BytesRef(v))
       o()
@@ -418,7 +417,7 @@ class OctavoIndexer extends ParallelProcessor {
   }
 
   class LongPointSNDVFieldPair(field: String) extends FieldPair(new LongPoint(field, 0L), new SortedNumericDocValuesField(field, 0)) {
-    def setValue(v: Long) {
+    def setValue(v: Long): this.type = {
       indexField.setLongValue(v)
       storedField.setLongValue(v)
       o()
@@ -508,7 +507,7 @@ class OctavoIndexer extends ParallelProcessor {
     finalCodec
   }
 
-  def close(iw: IndexWriter) {
+  def close(iw: IndexWriter): Unit = {
     if (iw != null) {
       logger.info("Closing index " + iw.getDirectory)
       iw.close()

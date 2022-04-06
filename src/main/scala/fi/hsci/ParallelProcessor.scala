@@ -130,7 +130,7 @@ class ParallelProcessor extends LazyLogging {
     for (task <- tasks) task()
   }(ExecutionContext.Implicits.global)
 
-  def waitForTasks(tasks: Future[Unit]*) {
+  def waitForTasks(tasks: Future[Unit]*): Unit = {
     for (task <- tasks) Try(Await.result(task, Duration.Inf)).toEither.left.foreach(logger.error("Task encountered exception",_))
   }
 
